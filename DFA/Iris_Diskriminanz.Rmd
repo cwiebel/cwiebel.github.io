@@ -1,0 +1,239 @@
+---
+title: "Interaktive Visualisierung einer Diskriminanzanalyse"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+  runtime: shiny 
+---
+
+```{r setup and data, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(MASS)
+library(shiny)
+
+iris <- readxl::read_excel("iris_tut.xlsx")
+iris$species <- as.factor(iris$species)
+
+```
+
+```{r DFA and Manova, include=FALSE}
+
+# DFA
+model <- lda(species ~ sepal_length + petal_length + petal_width, data = iris)
+roots <- as.data.frame(predict(model)$x)
+roots$species <- iris$species
+
+
+# Manova
+mymanova <- summary(manova(cbind(sepal_length, sepal_width) ~ species, data = iris), test = "Wilks" )
+
+
+```
+
+Column {.sidebar data-width=250}
+-----------------------------------------------------------------------
+
+<h3> Überschrift </h3>
+Hier ist ein Text zu dem Dashboard.
+
+```{r}
+ selectInput("z_axis", label = h3("Z-Achse"), 
+    choices = list("Sepal Length (gute Trennung)" = 1, 
+                   "Irgendwas (mittlere Trennung)" = 2, 
+                   "Irgendwas (schlechte Trennung)" = 3), 
+    selected = 1)
+
+
+# in den anderen Chunks auf die Werte zugreifen: 
+# num <- reactive(as.integer(input$clusterNum))
+```
+
+Kreiert von Clara Wiebel
+Uni Mainz
+cwiebel@students.uni-mainz.de
+
+
+Main 3D Plot {data-width=330}
+-----------------------------------------------------------------------
+
+<h2> Statistische Kennwerte der Diskriminanzanalyse </h2>
+Hier kommt ein Textblock hin <br>
+lambda = x% <br>
+hallo <br>
+hallo <br>
+
+<h2> 3D Plot der Originaldaten </h2>
+```{r}
+library(plotly)
+
+plot_ly(iris, x = ~sepal_length, y = ~petal_length, z = ~petal_width, color = ~species, 
+               colors = c("coral", "#F4D03F", "#28B463"),
+               marker = list(
+              size = 5,
+              opacity = .5)) %>% 
+  add_markers() %>% 
+  layout(scene = list(xaxis = list(title = 'Sepal Length'),
+                     yaxis = list(title = 'Petal Length'),
+                     zaxis = list(title = 'Petal Width')))
+
+
+```
+
+
+DFA Results {data-width=420 .tabset}
+-----------------------------------------------------------------------
+
+```{r writing LR plots, include=FALSE}
+
+# data preperation
+roots$ypos <- NA
+roots$ypos[roots$species== "setosa"] <- - 0.02
+roots$ypos[roots$species== "versicolor"] <- -0.05
+roots$ypos[roots$species== "virginica"] <- -0.08
+
+# Plot Y1
+plotY1 <- roots %>%
+  ggplot(aes(x = LD1, color = species)) +  
+  stat_function(fun = dnorm, args = 
+                  list(mean = mean(roots$LD1[roots$species =="setosa"]), 
+                       sd = 1), color = "coral")+
+  stat_function(fun = dnorm, args = 
+                  list(mean = mean(roots$LD1[roots$species =="versicolor"]), 
+                       sd = 1), color = "#F4D03F")+
+  stat_function(fun = dnorm, args = 
+                  list(mean = mean(roots$LD1[roots$species =="virginica"]), 
+                       sd = 1), color = "#28B463")+
+  geom_jitter(data= roots, aes(x=roots$LD1, y=ypos, colour= species), alpha=0.4, size = 3,
+              height = 0.008, width = 0)+
+  ylab("") + 
+  xlab("Diskriminanzfunktion 1")  +
+  guides(fill=guide_legend("my awesome title"))+
+  xlim(c(-11,10))+
+  ylim(c(-0.1,0.42))+
+  scale_color_manual(name = "Species", 
+                     labels = c("Setosa", "Versicolor", "Virginica"),
+                     values = c("coral", "#F4D03F", "#28B463"))+
+  theme_minimal()+
+  theme(axis.text.x = element_text(color="black", size=10),
+        axis.text.y = element_text(color="black", size=10),
+        legend.title = element_text(color="black", size=10),
+        legend.text = element_text(color="black", size=10),
+        axis.title.x = element_text(color="black", size=10),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = '#d1d1d1', size = .3))
+
+
+plotY2 <- roots %>%
+  ggplot(aes(x = LD2, color = species)) +  
+  stat_function(fun = dnorm, args = 
+                  list(mean = mean(roots$LD2[roots$species =="setosa"]), 
+                       sd = 1), color = "coral")+
+  stat_function(fun = dnorm, args = 
+                  list(mean = mean(roots$LD2[roots$species =="versicolor"]), 
+                       sd = 1), color = "#F4D03F")+
+  stat_function(fun = dnorm, args = 
+                  list(mean = mean(roots$LD2[roots$species =="virginica"]), 
+                       sd = 1), color = "#28B463")+
+  geom_jitter(data= roots, aes(x=roots$LD2, y=ypos, colour= species), alpha=0.4, size = 3,
+              height = 0.008, width = 0)+
+  ylab("") + 
+  xlab("Diskriminanzfunktion 2")  +
+  guides(fill=guide_legend("my awesome title"))+
+  xlim(c(-5,5))+
+  ylim(c(-0.1,0.42))+
+  scale_color_manual(name = "Species", 
+                     labels = c("Setosa", "Versicolor", "Virginica"),
+                     values = c("coral", "#F4D03F", "#28B463"))+
+  theme_minimal()+
+  theme(axis.text.x = element_text(color="black", size=10),
+        axis.text.y = element_text(color="black", size=10),
+        legend.title = element_text(color="black", size=10),
+        legend.text = element_text(color="black", size=10),
+        axis.title.x = element_text(color="black", size=10),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = '#d1d1d1', size = .3))+
+  coord_flip()
+
+
+
+```
+
+
+
+### Kanonische Werte - LR Klassifikation auf Y1 
+
+#### Roots
+
+```{r}
+  plot_ly(x = roots$LD1, y = roots$LD2, color = roots$species, 
+            colors = c("coral", "#F4D03F", "#28B463"),
+            marker = list(
+              size = 10,
+              opacity = .7,
+              line = list(
+                width = .2)
+              )) %>%
+  layout(legend=list(title=list(text='Species')),
+         xaxis = list( 
+           title = 'Diskriminanzfunktion 1',
+           zerolinecolor = '#b7b7b7', 
+           zerolinewidth = 1, 
+           gridcolor = '#d1d1d1'), 
+         yaxis = list( 
+           title = 'Diskriminanzfunktion 2',
+           zerolinecolor = '#b7b7b7', 
+           zerolinewidth = 1, 
+           gridcolor = '#d1d1d1'),
+        autosize = F, width = 700, height = 400)
+```
+
+#### Klassifikation auf Y1
+
+```{r, fig.width = 7.2, fig.height = 2.8}
+plotY1
+
+```
+
+
+
+### Kanonische Werte - LR Klassifikation auf Y2
+
+#### Roots
+
+```{r}
+  plot_ly(x = roots$LD1, y = roots$LD2, color = roots$species, 
+            colors = c("coral", "#F4D03F", "#28B463"),
+            marker = list(
+              size = 10,
+              opacity = .7,
+              line = list(
+                width = .2)
+              )) %>%
+  layout(legend=list(title=list(text='Species')),
+         xaxis = list( 
+           title = 'Diskriminanzfunktion 1',
+           zerolinecolor = '#b7b7b7', 
+           zerolinewidth = 1, 
+           gridcolor = '#d1d1d1'), 
+         yaxis = list( 
+           title = 'Diskriminanzfunktion 2',
+           zerolinecolor = '#b7b7b7', 
+           zerolinewidth = 1, 
+           gridcolor = '#d1d1d1'),
+        autosize = F, width = 700, height = 300)
+```
+
+
+#### Klassifikation auf Y1
+```{r, fig.width = 5, fig.height = 3.8, fig.align="left"}
+plotY2
+
+```
+
+
+
+
+
+
